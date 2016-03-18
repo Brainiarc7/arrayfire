@@ -16,9 +16,6 @@
 #include <vector>
 #include <cstddef>
 
-dim_t
-calcOffset(const af::dim4 &strides, const af::dim4 &offsets);
-
 af::dim4
 calcStrides(const af::dim4 &parentDim);
 
@@ -32,14 +29,14 @@ class ArrayInfo
 {
 private:
     // The devId variable stores information about the deviceId as well as the backend.
-    // The 4 LSBs (0-3) are used to store the device ID.
-    // The 4th LSB is set to 1 if backend is CPU
-    // The 5th LSB is set to 1 if backend is CUDA
-    // The 6th LSB is set to 1 if backend is OpenCL
+    // The 8 LSBs (0-7) are used to store the device ID.
+    // The 09th LSB is set to 1 if backend is CPU
+    // The 10th LSB is set to 1 if backend is CUDA
+    // The 11th LSB is set to 1 if backend is OpenCL
     // This information can be retrieved directly from an af_array by doing
     //     int* devId = reinterpret_cast<int*>(a); // a is an af_array
-    //     af_backend backendID = *devId >> 3;  // Returns 1, 2, 4 for CPU, CUDA or OpenCL respectively
-    //     int        deviceID  = *devId & 0xf; // Returns devices ID between 0-15
+    //     af_backend backendID = *devId >> 8;   // Returns 1, 2, 4 for CPU, CUDA or OpenCL respectively
+    //     int        deviceID  = *devId & 0xff; // Returns devices ID between 0-255
     // This is possible by doing a static_assert on devId
     //
     // This can be changed in the future if the need arises for more devices as this
@@ -48,14 +45,15 @@ private:
     int             devId;
     af_dtype        type;
     af::dim4        dim_size;
-    af::dim4        dim_offsets, dim_strides;
+    dim_t           offset;
+    af::dim4        dim_strides;
 
 public:
-    ArrayInfo(int id, af::dim4 size, af::dim4 offset, af::dim4 stride, af_dtype af_type):
+    ArrayInfo(int id, af::dim4 size, dim_t offset_, af::dim4 stride, af_dtype af_type):
         devId(id),
         type(af_type),
         dim_size(size),
-        dim_offsets(offset),
+        offset(offset_),
         dim_strides(stride)
     {
         af_init();
@@ -77,13 +75,14 @@ public:
 
     const af_dtype& getType() const     { return type;                  }
 
-    const af::dim4& offsets() const     { return dim_offsets;           }
+    dim_t getOffset() const             { return offset;                }
 
     const af::dim4& strides() const     { return dim_strides;           }
 
     size_t elements() const             { return dim_size.elements();   }
     size_t ndims() const                { return dim_size.ndims();      }
     const af::dim4& dims() const        { return dim_size;              }
+    size_t total() const                { return offset + dim_strides[3] * dim_size[3]; }
 
     int getDevId() const;
 
@@ -97,7 +96,7 @@ public:
     {
         dim_size = dims;
         dim_strides = calcStrides(dims);
-        dim_offsets = af::dim4(0,0,0,0);
+        offset = 0;
     }
 
     void resetDims(const af::dim4& dims)
@@ -140,12 +139,6 @@ public:
 #if __cplusplus > 199711l
     static_assert(std::is_standard_layout<ArrayInfo>::value, "ArrayInfo must be a standard layout type");
 #endif
-
-// Returns size and time info for an array object.
-// Note this doesn't require template parameters.
-const  ArrayInfo&
-getInfo(const af_array arr);
-
 
 af::dim4 toDims(const std::vector<af_seq>& seqs, const af::dim4 &parentDims);
 

@@ -10,13 +10,26 @@ IF(USE_OPENCL_F77_BLAS)
     ADD_DEFINITIONS(-DUSE_F77_BLAS)
 ENDIF()
 
-IF(USE_OPENCL_MKL)
-    MESSAGE("Using MKL")
+IF(USE_OPENCL_MKL) # Manual MKL Setup
+    MESSAGE("OpenCL Backend Using MKL")
     ADD_DEFINITIONS(-DUSE_MKL)
+ELSE(USE_OPENCL_MKL)
+    IF(${MKL_FOUND}) # Automatic MKL Setup from BLAS
+        MESSAGE("OpenCL Backend Using MKL RT")
+        ADD_DEFINITIONS(-DUSE_MKL)
+    ENDIF()
 ENDIF()
 
 IF(APPLE)
-    FIND_PACKAGE(LAPACK)
+    FIND_PACKAGE(LAPACKE QUIET) # For finding MKL
+    IF(NOT LAPACK_FOUND)
+        # UNSET THE VARIABLES FROM LAPACKE
+        UNSET(LAPACKE_LIB CACHE)
+        UNSET(LAPACK_LIB CACHE)
+        UNSET(LAPACKE_INCLUDES CACHE)
+        UNSET(LAPACKE_ROOT_DIR CACHE)
+        FIND_PACKAGE(LAPACK)
+    ENDIF()
 ELSE(APPLE) # Linux and Windows
     FIND_PACKAGE(LAPACKE)
 ENDIF(APPLE)
@@ -123,6 +136,23 @@ FILE(GLOB conv_ker_headers
 FILE(GLOB conv_ker_sources
      "kernel/convolve/*.cpp")
 
+FILE(GLOB cpu_headers
+     "cpu/*.hpp")
+
+FILE(GLOB cpu_sources
+     "cpu/*.cpp")
+
+LIST(SORT opencl_headers)
+LIST(SORT opencl_sources)
+LIST(SORT jit_sources)
+LIST(SORT kernel_headers)
+LIST(SORT opencl_kernels)
+LIST(SORT kernel_sources)
+LIST(SORT conv_ker_headers)
+LIST(SORT conv_ker_sources)
+LIST(SORT cpu_headers)
+LIST(SORT cpu_sources)
+
 source_group(backend\\opencl\\Headers FILES ${opencl_headers})
 source_group(backend\\opencl\\Sources FILES ${opencl_sources})
 source_group(backend\\opencl\\JIT FILES ${jit_sources})
@@ -131,6 +161,8 @@ source_group(backend\\opencl\\kernel\\cl FILES ${opencl_kernels})
 source_group(backend\\opencl\\kernel\\Sources FILES ${kernel_sources})
 source_group(backend\\opencl\\kernel\\convolve\\Headers FILES ${conv_ker_headers})
 source_group(backend\\opencl\\kernel\\convolve\\Sources FILES ${conv_ker_sources})
+source_group(backend\\opencl\\cpu\\Headers FILES ${cpu_headers})
+source_group(backend\\opencl\\cpu\\Sources FILES ${cpu_sources})
 
 IF(LAPACK_FOUND)
     FILE(GLOB magma_sources
@@ -138,6 +170,9 @@ IF(LAPACK_FOUND)
 
     FILE(GLOB magma_headers
         "magma/*.h")
+
+    LIST(SORT magma_headers)
+    LIST(SORT magma_sources)
 
     source_group(backend\\opencl\\magma\\Sources FILES ${magma_sources})
     source_group(backend\\opencl\\magma\\Headers FILES ${magma_headers})
@@ -154,6 +189,10 @@ FILE(GLOB backend_headers
 FILE(GLOB backend_sources
     "../*.cpp"
     )
+
+LIST(SORT backend_headers)
+LIST(SORT backend_sources)
+
 source_group(backend\\Headers FILES ${backend_headers})
 source_group(backend\\Sources FILES ${backend_sources})
 
@@ -165,16 +204,24 @@ FILE(GLOB c_headers
 FILE(GLOB c_sources
     "../../api/c/*.cpp"
     )
+
+LIST(SORT c_headers)
+LIST(SORT c_sources)
+
 source_group(api\\c\\Headers FILES ${c_headers})
 source_group(api\\c\\Sources FILES ${c_sources})
-
 
 FILE(GLOB cpp_sources
     "../../api/cpp/*.cpp"
     )
+
+LIST(SORT cpp_sources)
+
 source_group(api\\cpp\\Sources FILES ${cpp_sources})
 
 FILE(GLOB kernel_src ${opencl_kernels} "kernel/KParam.hpp")
+
+LIST(SORT kernel_src)
 
 CL_KERNEL_TO_H(
     SOURCES ${kernel_src}
@@ -189,10 +236,6 @@ CL_KERNEL_TO_H(
 # OS Definitions
 IF(UNIX)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -pthread -Wno-comment")
-ELSE(${UNIX}) #Windows
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
-    SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /bigobj")
 ENDIF()
 
 IF(DEFINED BLAS_SYM_FILE)
@@ -206,6 +249,8 @@ IF(DEFINED BLAS_SYM_FILE)
                 ${kernel_sources}
                 ${conv_ker_headers}
                 ${conv_ker_sources}
+                ${cpu_headers}
+                ${cpu_sources}
                 ${backend_headers}
                 ${backend_sources}
                 ${magma_sources}
@@ -244,6 +289,8 @@ ELSE(DEFINED BLAS_SYM_FILE)
                 ${kernel_sources}
                 ${conv_ker_headers}
                 ${conv_ker_sources}
+                ${cpu_sources}
+                ${cpu_sources}
                 ${backend_headers}
                 ${backend_sources}
                 ${c_headers}

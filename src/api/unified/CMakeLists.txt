@@ -6,20 +6,28 @@ FILE(GLOB unified_headers
 FILE(GLOB unified_sources
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
+LIST(SORT unified_headers)
+LIST(SORT unified_sources)
+
 SOURCE_GROUP(api\\unified\\Headers FILES ${unified_headers})
 SOURCE_GROUP(api\\unified\\Sources FILES ${unified_sources})
 
 FILE(GLOB cpp_sources
     "../cpp/*.cpp")
 
+LIST(SORT cpp_sources)
+
 SOURCE_GROUP(api\\cpp\\Sources FILES ${cpp_sources})
 
 FILE(GLOB common_sources
-    "../c/util.cpp"
-    "../c/err_common.cpp"
-    "../c/type_util.cpp"
-    "../../backend/dim4.cpp"
-    )
+  "../c/version.cpp"
+  "../c/err_common.cpp"
+  "../c/type_util.cpp"
+  "../../backend/dim4.cpp"
+  "../../backend/util.cpp"
+  )
+
+LIST(SORT common_sources)
 
 SOURCE_GROUP(common FILES ${common_sources})
 
@@ -30,10 +38,6 @@ ENDIF()
 # OS Definitions
 IF(UNIX)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -pthread -Wno-comment")
-ELSE(${UNIX}) #Windows
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
-    SET(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /bigobj")
 ENDIF()
 
 ADD_LIBRARY(af SHARED
